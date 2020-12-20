@@ -1,0 +1,170 @@
+#netflow & SNMPv2c:
+ 
+interface Loopback1005
+ description LB%HKG-MEG-IE03~LB1005%NSFOCUS-NTA-Loopback
+ ipv4 address 223.118.57.144 255.255.255.255
+!
+
+#
+interface Loopback1006
+ description LB%HKG-MEG-IE03~LB1006%NSFOCUS-NTA-Loopback-BH
+ ipv4 address 223.118.57.145 255.255.255.255
+!
+
+
+ 
+flow exporter-map FNF_EXPORT_MAP_NSFOCUS
+ version v9
+  template timeout 30
+  template data timeout 30
+  template options timeout 30
+ !
+ transport udp 9999
+ source Loopback1005
+ destination 192.254.89.253
+!
+ 
+flow monitor-map FNF_MONITOR_MAP
+ record ipv4
+ exporter FNF_EXPORT_MAP_ARBOR
+ exporter FNF_EXPORT_MAP_NFSEN
+ exporter FNF_EXPORT_MAP_NSFOCUS
+ cache timeout active 60
+ cache timeout inactive 5
+!
+ 
+snmp-server community cm1&nsf0cus view SECURED_VIEW RO IPv4 acli_NSFOCUS_SNMP_POLLER
+control-plane management-plane inband interface all allow SNMP peer address ipv4 192.254.89.253
+ipv4 access-list acli_NSFOCUS_SNMP_POLLER
+ 10 remark NSFOCUS
+ 20 permit ipv4 host 192.254.89.253 any (2270 matches)
+ 
+ 
+NTA:
+router bgp 58453
+ neighbor 192.254.89.253
+  remote-as 58453
+  description NSFOCUS_NTA_HKG-GNC-IC02
+  update-source Loopback1005
+  address-family ipv4 unicast
+   route-policy rplc_NSFOCUS_NTA_BH_IN_v1 in
+   route-policy deny-all out
+  !
+ !
+!
+route-policy rplc_NSFOCUS_NTA_BH_IN_v1
+  if destination in pset_std_host32 then
+    # Remove communities
+    delete community not in cset_std_RTBH_CUST
+    # Set source identifiers, including city, country, and region
+    set community cset_node_SOURCE_GEO0_CUSTOMER additive
+    set community cset_node_SOURCE_GEO1_CUSTOMER_APAC additive
+    set community cset_node_SOURCE_GEO2_CUSTOMER_SEASIA additive
+    set community cset_node_SOURCE_GEO3_CUSTOMER_HKSAR additive
+    set community cset_node_SOURCE_GEO5_CUSTOMER_HKSAR additive
+    set community cset_std_SOURCE_GESP_CUSTOMER_CMONNET additive
+    set community cset_node_SOURCE_INTL_CUSTOMER additive
+    set community cset_std_SOURCE_CUSTOMER_GIPT additive
+    set community cset_std_ANNOUNCE_EVERYWHERE additive
+    # Set RTBH
+    set local-preference 2000
+    set community cset_std_RTBH additive
+    set community (no-export) additive
+    set next-hop 192.168.255.255
+    # Pass
+    pass
+  else
+    drop
+  endif
+end-policy
+!
+ 
+Pulling
+ 
+router bgp 58453
+ neighbor 223.118.57.34
+  remote-as 65535
+  description NSFOCUS_NTA_HKG-GNC-IC02
+  update-source Loopback1005
+  address-family ipv4 unicast
+   route-policy rplc_NSFOCUS_ADS_Pull_IN_v1 in
+   route-policy deny-all out
+  !
+ !
+!
+route-policy rplc_NSFOCUS_ADS_Pull_IN_v1
+  if destination in pset_std_host32 then
+    # Set source identifiers, including city, country, and region
+    set community cset_node_SOURCE_GEO0_CUSTOMER additive
+    set community cset_node_SOURCE_GEO1_CUSTOMER_APAC additive
+    set community cset_node_SOURCE_GEO2_CUSTOMER_SEASIA additive
+    set community cset_node_SOURCE_GEO3_CUSTOMER_HKSAR additive
+    set community cset_node_SOURCE_GEO5_CUSTOMER_HKSAR additive
+    # Set action identifiers
+    set community cset_node_SOURCE_INTL_CUSTOMER additive
+    set community cset_std_ANNOUNCE_EVERYWHERE additive
+    set community cset_std_ANNOUNCE_CMNET additive
+    set local-preference 1500
+    set community (no-export) additive
+    set next-hop 223.118.57.34
+    pass
+  else
+    drop
+  endif
+end-policy
+!
+ 
+
+
+
+
+
+
+router bgp 58453
+ neighbor 192.254.89.253
+  remote-as 58453
+  description NSFOCUS_NTA_HKG-MEG-IE03-Pulling
+  update-source Loopback1005
+  address-family ipv4 unicast
+   route-policy  rplc_NSFOCUS_ADS_Pull_IN_v1 in
+   route-policy deny-all out
+  !
+ !
+
+
+router bgp 58453
+ neighbor 192.254.89.254
+  remote-as 58453
+  description NSFOCUS_NTA_BH
+  update-source Loopback1006
+  address-family ipv4 unicast
+   route-policy rplc_NSFOCUS_NTA_BH_IN_v1 in
+   route-policy deny-all out
+
+route-policy rplc_NSFOCUS_NTA_BH_IN_v1
+  if destination in pset_std_host32 then
+    # Remove communities
+    delete community not in cset_std_RTBH_CUST
+    # Set source identifiers, including city, country, and region
+    set community cset_node_SOURCE_GEO0_CUSTOMER additive
+    set community cset_node_SOURCE_GEO1_CUSTOMER_APAC additive
+    set community cset_node_SOURCE_GEO2_CUSTOMER_SEASIA additive
+    set community cset_node_SOURCE_GEO3_CUSTOMER_HKSAR additive
+    set community cset_node_SOURCE_GEO5_CUSTOMER_HKSAR additive
+    # Set action identifiers
+    set community cset_node_SOURCE_INTL_CUSTOMER additive
+    set community cset_std_ANNOUNCE_EVERYWHERE additive
+    set community cset_std_ANNOUNCE_CMNET additive
+    # Set RTBH
+    set local-preference 2000
+    set community cset_std_RTBH additive
+    set community (no-export) additive
+    set next-hop 192.168.255.255
+    # Pass
+    pass
+  else
+    drop
+  endif
+end-policy
+
+
